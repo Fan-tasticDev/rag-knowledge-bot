@@ -2,6 +2,7 @@
 backend/__pycache__
 backend/venv
 backend/.env
+backend/chroma_db
 
 # frontend
 frontend/node_modules

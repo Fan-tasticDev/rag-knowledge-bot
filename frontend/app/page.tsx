@@ -43,6 +43,7 @@ export default function Home() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
+
     const userMsg: Message = {
       id: Date.now().toString(),
       role: "user",
@@ -51,25 +52,87 @@ export default function Home() {
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setLoading(true);
+
+    // 创建一个占位的 AI 消息，稍后流式更新
+    const assistantId = (Date.now() + 1).toString();
+    const assistantMsg: Message = {
+      id: assistantId,
+      role: "assistant",
+      content: "",
+      sources: [],
+    };
+    setMessages((prev) => [...prev, assistantMsg]);
+
     try {
-      const res = await fetch(`${API_BASE_URL}/rag-chat`, {
+      const response = await fetch("http://localhost:8000/rag-chat-stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userMsg.content }),
       });
-      const data = await res.json();
-      const botMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: data.reply || data.error || "出错了",
-        sources: data.sources || [], // 新增字段
-      };
-      setMessages((prev) => [...prev, botMsg]);
+
+      if (!response.ok || !response.body) {
+        throw new Error("网络错误");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // 按行解析 SSE 事件
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || ""; // 最后一个可能不完整，留下次处理
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const jsonStr = line.slice(6);
+            try {
+              const event = JSON.parse(jsonStr);
+              if (event.type === "sources") {
+                setLoading(false);
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantId
+                      ? { ...msg, sources: event.data }
+                      : msg,
+                  ),
+                );
+              } else if (event.type === "content") {
+                setLoading(false);
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantId
+                      ? { ...msg, content: msg.content + event.data }
+                      : msg,
+                  ),
+                );
+              } else if (event.type === "error") {
+                setLoading(false);
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantId
+                      ? { ...msg, content: "出错了：" + event.data }
+                      : msg,
+                  ),
+                );
+              }
+              // done 事件无需特殊处理
+            } catch (e) {
+              /* 忽略解析错误 */
+            }
+          }
+        }
+      }
     } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        { id: Date.now().toString(), role: "assistant", content: "请求失败" },
-      ]);
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantId ? { ...msg, content: "请求失败" } : msg,
+        ),
+      );
     } finally {
       setLoading(false);
     }

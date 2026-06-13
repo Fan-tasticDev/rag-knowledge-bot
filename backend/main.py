@@ -5,6 +5,8 @@ from pydantic import BaseModel
 import os
 from dotenv import load_dotenv
 import re
+from fastapi.responses import StreamingResponse
+import json
 
 # RAG 相关
 import chromadb
@@ -167,3 +169,74 @@ async def rag_chat(req: RagChatRequest):
         return {"reply": response.choices[0].message.content, "sources": sources}
     except Exception as e:
         return {"error": str(e)}
+
+@app.post("/rag-chat-stream")
+async def rag_chat_stream(req: RagChatRequest):
+    # ---- 下面这段检索代码和 /rag-chat 完全一样，可以复用 ----
+    try:
+        query_embedding = get_embedding(req.message)
+        results = collection.query(
+            query_embeddings=[query_embedding],
+            n_results=6
+        )
+        retrieved_docs = results.get("documents", [[]])[0]
+        if not retrieved_docs:
+            async def empty_stream():
+                yield f"data: {json.dumps({'type': 'error', 'data': '知识库中没有找到相关信息。'})}\n\n"
+            return StreamingResponse(empty_stream(), media_type="text/event-stream")
+
+        def simple_rerank(query: str, docs: list[str]) -> list[str]:
+            query_set = set(query)
+            scored = []
+            for doc in docs:
+                doc_set = set(doc)
+                score = len(query_set & doc_set)
+                scored.append((score, doc))
+            scored.sort(key=lambda x: x[0], reverse=True)
+            return [doc for _, doc in scored[:3]]
+
+        reranked_docs = simple_rerank(req.message, retrieved_docs)
+        context = "\n\n".join(reranked_docs)
+        sources = [doc[:100] + "..." if len(doc) > 100 else doc for doc in reranked_docs]
+
+        prompt = f"""你是一个严谨的知识库问答助手。请严格根据以下资料回答问题，并用引号引用资料中的原文句子作为依据。
+如果资料中找不到答案，请只回答“资料中未提及”。
+请用一段话简洁回答，不超过100字。
+
+资料：
+{context}
+
+问题：{req.message}
+
+回答："""
+
+        async def generate():
+            # 1. 先发送引用来源
+            yield f"data: {json.dumps({'type': 'sources', 'data': sources})}\n\n"
+
+            # 2. 调用智谱模型流式生成
+            try:
+                stream = client.chat.completions.create(
+                    model="glm-4-flash",
+                    messages=[{"role": "user", "content": prompt}],
+                    stream=True,
+                    temperature=0.1,
+                    max_tokens=400,
+                    frequency_penalty=0.5,
+                    presence_penalty=0.3
+                )
+                for chunk in stream:
+                    if chunk.choices[0].delta.content:
+                        content = chunk.choices[0].delta.content
+                        yield f"data: {json.dumps({'type': 'content', 'data': content})}\n\n"
+            except Exception as e:
+                yield f"data: {json.dumps({'type': 'error', 'data': str(e)})}\n\n"
+
+            # 3. 结束标记
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+        return StreamingResponse(generate(), media_type="text/event-stream")
+    except Exception as e:
+        async def error_stream():
+            yield f"data: {json.dumps({'type': 'error', 'data': str(e)})}\n\n"
+        return StreamingResponse(error_stream(), media_type="text/event-stream")

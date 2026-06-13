@@ -76,12 +76,15 @@ npm run dev
 ```
 打开 http://localhost:3000，在对话框中输入消息，即可与 AI 对话。
 
-📝 下一步计划
+## 🌐 在线演示
+[点击这里查看在线演示](https://rag-knowledge-bot.vercel.app/)
+
+### 📝 下一步计划
 多智能体协作看板（Agent + Task Planning）
 
 前端流式回答体验优化
 
-部署上线（Vercel + Railway）
+
 
 ### 📬 联系我
 如果你对这个项目感兴趣，欢迎通过 GitHub 或邮件与我交流，期待合作机会。

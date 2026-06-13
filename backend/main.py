@@ -28,6 +28,10 @@ client = OpenAI(
     base_url="https://open.bigmodel.cn/api/paas/v4/"
 )
 
+class RagChatResponse(BaseModel):
+    reply: str
+    sources: list[str] = []
+
 # ---------- Chroma 初始化 ----------
 CHROMA_PATH = "./chroma_db"
 collection = None
@@ -110,8 +114,9 @@ async def upload_pdf(file: UploadFile = File(...)):
     except Exception as e:
         return {"error": str(e)}
 
+
 # ---------- RAG 问答接口 ----------
-@app.post("/rag-chat")
+@app.post("/rag-chat", response_model=RagChatResponse)
 async def rag_chat(req: RagChatRequest):
     try:
         # 1. 将用户问题向量化
@@ -157,6 +162,8 @@ async def rag_chat(req: RagChatRequest):
             frequency_penalty=0.5,   # 惩罚重复，这是关键！
             presence_penalty=0.3
         )
-        return {"reply": response.choices[0].message.content}
+        sources =[doc[:100] + "..." if len(doc) > 100 else doc for doc in reranked_docs]
+        
+        return {"reply": response.choices[0].message.content, "sources": sources}
     except Exception as e:
         return {"error": str(e)}

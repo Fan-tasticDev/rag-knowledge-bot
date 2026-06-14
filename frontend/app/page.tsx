@@ -17,6 +17,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [clearing, setClearing] = useState(false);
 
   // 上传文件
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -37,6 +38,21 @@ export default function Home() {
     }
     // 清空 input，以便同一文件再次选择可触发 onChange
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  // 清空函数
+  const handleClearDB = async () => {
+    if (!window.confirm("确定要清空所有知识库内容吗？此操作不可恢复。")) return;
+    setClearing(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/clear-db`, { method: "POST" });
+      const data = await res.json();
+      setUploadStatus(data.message || "知识库已清空");
+    } catch (err) {
+      setUploadStatus("清空失败");
+    } finally {
+      setClearing(false);
+    }
   };
 
   // 发送消息（调用 RAG 接口）
@@ -146,7 +162,7 @@ export default function Home() {
       <div className="flex items-center gap-2 mb-4">
         <input
           type="file"
-          accept=".pdf"
+          accept=".pdf,.md,.txt"
           ref={fileInputRef}
           onChange={handleUpload}
           className="hidden"
@@ -155,7 +171,14 @@ export default function Home() {
           onClick={() => fileInputRef.current?.click()}
           className="bg-green-500 text-white px-4 py-1 rounded"
         >
-          上传 PDF
+          上传文档 (PDF/MD/TXT)
+        </button>
+        <button
+          onClick={handleClearDB}
+          className="bg-red-400 text-white px-4 py-1 rounded"
+          disabled={clearing}
+        >
+          {clearing ? "清空中..." : "清空知识库"}
         </button>
         {uploadStatus && (
           <span className="text-sm text-gray-600">{uploadStatus}</span>

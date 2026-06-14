@@ -97,15 +97,26 @@ async def chat(req: ChatRequest):
 
 # ---------- 文件上传接口 ----------
 @app.post("/upload")
-async def upload_pdf(file: UploadFile = File(...)):
+async def upload_file(file: UploadFile = File(...)):
     try:
-        chunks = process_pdf(file)
+        filename = file.filename or "unknown"
+        # 1. 根据文件后缀选择解析方式
+        if filename.lower().endswith(".pdf"):
+            chunks = process_pdf(file)          # 原有的 PDF 处理
+        elif filename.lower().endswith((".md", ".txt")):
+            content = await file.read()         # 读取原始字节
+            content = content.decode("utf-8")   # 解码为字符串
+            chunks = text_splitter.split_text(content)  # 分块
+        else:
+            return {"error": f"不支持的文件格式：{filename}"}
+
         if not chunks:
             return {"error": "未能从文件中提取文字"}
-        # 生成嵌入并存入 Chroma
-        ids = [f"{file.filename}_{i}" for i in range(len(chunks))]
+
+        # 2. 以下逻辑与之前完全一致：生成嵌入并存入 Chroma
+        ids = [f"{filename}_{i}" for i in range(len(chunks))]
         embeddings = [get_embedding(chunk) for chunk in chunks]
-        metadatas = [{"source": file.filename, "chunk_index": i} for i in range(len(chunks))]
+        metadatas = [{"source": filename, "chunk_index": i} for i in range(len(chunks))]
         collection.add(
             ids=ids,
             documents=chunks,
@@ -113,6 +124,7 @@ async def upload_pdf(file: UploadFile = File(...)):
             metadatas=metadatas
         )
         return {"message": f"成功处理 {len(chunks)} 个文本块"}
+
     except Exception as e:
         return {"error": str(e)}
 
@@ -240,3 +252,15 @@ async def rag_chat_stream(req: RagChatRequest):
         async def error_stream():
             yield f"data: {json.dumps({'type': 'error', 'data': str(e)})}\n\n"
         return StreamingResponse(error_stream(), media_type="text/event-stream")
+    
+# ---------- 清空数据库接口 (开发调试用) ----------
+@app.post("/clear-db")
+async def clear_db():
+    global collection
+    try:
+        chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
+        chroma_client.delete_collection("knowledge_base")
+    except:
+        pass
+    collection = chroma_client.get_or_create_collection("knowledge_base")
+    return {"message": "知识库已清空"}

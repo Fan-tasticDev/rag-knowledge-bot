@@ -81,7 +81,7 @@ export default function Home() {
     setMessages((prev) => [...prev, assistantMsg]);
 
     try {
-      const response = await fetch("http://localhost:8000/rag-chat-stream", {
+      const response = await fetch(`${API_BASE_URL}/rag-chat-stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userMsg.content }),

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 type Message = {
   id: string;
@@ -18,6 +18,7 @@ export default function Home() {
   const [uploadStatus, setUploadStatus] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [clearing, setClearing] = useState(false);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   // 上传文件
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -154,6 +155,14 @@ export default function Home() {
     }
   };
 
+  // 当消息列表更新时（包括流式打字），自动滚动到底部
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop =
+        chatContainerRef.current.scrollHeight;
+    }
+  }, [messages, loading]); // 依赖 messages 和 loading 变化
+
   return (
     <main className="flex flex-col h-screen p-4 max-w-2xl mx-auto">
       <h1 className="text-xl font-bold mb-2">📚 RAG 知识库问答</h1>
@@ -186,7 +195,7 @@ export default function Home() {
       </div>
 
       {/* 对话区 */}
-      <div className="flex-1 overflow-auto border rounded p-2 space-y-2 mb-4">
+      <div ref={chatContainerRef} className="flex-1 overflow-auto border rounded p-2 space-y-2 mb-4">
         {messages.map((m) => (
           <div
             key={m.id}

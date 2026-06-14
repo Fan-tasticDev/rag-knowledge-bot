@@ -75,6 +75,7 @@ npm run dev
 
 ## 🌐 在线演示
 [点击这里查看在线演示](https://rag-knowledge-bot.vercel.app/)
+[在线演示地址2](https://rag-knowledge-bot-bkkgmolp.edgeone.cool/)
 
 ### 📝 下一步计划
 多智能体协作看板（Agent + Task Planning）

@@ -1,38 +1,34 @@
-# 📚 RAG 知识库问答系统（AI 全栈项目）
+# 📚 RAG 知识库智能问答系统
 
 > 基于 Next.js + FastAPI + 智谱 GLM-4-Flash 的智能文档问答助手。  
 > 已实现 PDF 上传、自动分块、向量存储、检索增强生成（RAG）全链路。
 
-## ✅ 当前进展
+## ✨ 核心功能
 
-- [x] 前端 Next.js 对话界面（流式展示）
-- [x] 后端 FastAPI 接入智谱大模型
-- [x] 前后端联调成功
-- [x] 文档上传解析（PDF 文本提取）
-- [x] 文本分块（RecursiveCharacterTextSplitter）
-- [x] 向量嵌入（智谱 embedding-2）
-- [x] 向量数据库存储与检索（Chroma）
-- [x] RAG 问答：检索 + 增强 + 生成
-- [x] 修复 LLM 重复输出与特殊字符编码问题
-- [ ] 多智能体协作看板（下一项目）
+- 📄 **文档上传与解析**：支持 PDF 上传，自动提取文本并清洗特殊字符
+- 🧠 **智能问答**：基于文档内容的精准问答，非简单关键词匹配
+- 📖 **原文溯源**：回答附带检索到的文档片段，确保可解释性
+- ⚡ **流式响应**：采用 SSE 实现打字机效果，优化等待体验
+- 🔧 **工程化处理**：解决 LLM 重复输出、Emoji 编码异常等实际问题
 
 ## 🛠 技术栈
 
-| 分层 | 技术 |
-|------|------|
-| 前端 | Next.js (App Router), TypeScript, Tailwind CSS |
-| 后端 | Python, FastAPI, Pydantic |
-| AI 模型 | 智谱 GLM-4-Flash (对话), embedding-2 (嵌入) |
-| 向量数据库 | Chroma（本地持久化） |
-| 文本处理 | PyPDF, RecursiveCharacterTextSplitter |
-| 部署 | 前端：Vercel / 后端：可部署至 Railway 等 |
+| 层级 | 技术选型 |
+|------|----------|
+| **前端** | Next.js (App Router) · TypeScript · Tailwind CSS |
+| **后端** | Python · FastAPI · Pydantic |
+| **大模型** | 智谱 GLM-4-Flash（对话）· embedding-2（文本嵌入） |
+| **向量数据库** | Chroma（本地持久化 + 云端部署） |
+| **文本处理** | PyPDF · RecursiveCharacterTextSplitter |
+| **部署** | Vercel（前端）· Render（后端） |
 
 ## 📂 项目结构
-
+```text
 rag-knowledge-bot/
 ├── backend/
-│ ├── main.py # FastAPI 后端主程序
-│ ├── chroma_db/ # 向量数据库文件（不提交）
+│ ├── main.py # FastAPI 后端主程序（含 /upload, /rag-chat, /rag-chat-stream 接口）
+│ ├── chroma_db/ # 向量数据库文件（自动生成，不提交）
+| ├── requirements.txt # Python 依赖
 │ ├── .env # API Key（不提交）
 │ └── venv/ # Python 虚拟环境
 ├── frontend/
@@ -41,7 +37,7 @@ rag-knowledge-bot/
 │ └── package.json
 ├── .gitignore
 └── README.md
-
+```
 
 ## 🧑‍💻 本地运行
 
@@ -55,6 +51,7 @@ cd rag-knowledge-bot
 cd backend
 python -m venv venv
 source venv/bin/activate   # Windows: venv\Scripts\activate
+pip install -r requirements.txt
 pip install fastapi uvicorn openai python-dotenv pydantic chromadb pypdf langchain-text-splitters
 ```
 创建 .env 文件，填入你的智谱 API Key：
